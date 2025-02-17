@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>GSTR-2B Processor</title>
+</head>
+<body>
+    <h2>Upload GSTR-2B Excel</h2>
+    <input type="file" id="fileInput">
+    <button onclick="uploadFile()">Upload</button>
+    <p id="message"></p>
+
+    <script>
+        function uploadFile() {
+            let file = document.getElementById("fileInput").files[0];
+            if (!file) {
+                alert("Please select a file first.");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("file", file);
+
+            fetch("http://127.0.0.1:5000/upload", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                let url = window.URL.createObjectURL(blob);
+                let a = document.createElement("a");
+                a.href = url;
+                a.download = "Formatted_GSTR2B.xlsx";
+                document.body.appendChild(a);
+                a.click();
+                document.getElementById("message").innerText = "Download complete!";
+            })
+            .catch(error => {
+                console.error("Upload failed:", error);
+                document.getElementById("message").innerText = "Upload failed!";
+            });
+        }
+    </script>
+</body>
+</html>
