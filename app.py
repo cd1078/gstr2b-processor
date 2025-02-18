@@ -1,4 +1,4 @@
-﻿from flask import Flask, request, send_file
+from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 import pandas as pd
 import openpyxl
@@ -14,17 +14,26 @@ def process_excel(input_path, output_path):
     try:
         df = pd.read_excel(input_path, sheet_name="B2B", engine="openpyxl")
         
-        # Delete specific rows by index (adjust for 0-based index)
-        df.drop(index=[1, 2, 3, 5], inplace=True)
+        # Check if the DataFrame is valid
+        if df.empty:
+            return False, "Error: Excel file is empty or sheet not found."
+
+        # Ensure the specified indices exist before dropping
+        rows_to_delete = [1, 2, 3, 5]
+        rows_to_delete = [i for i in rows_to_delete if i < len(df)]
+        df.drop(index=rows_to_delete, inplace=True)
         df.reset_index(drop=True, inplace=True)
-        
-        # Delete specific columns by index (0-based index, adjust as needed)
-        columns_to_delete = [3, 6, 7, 13, 14, 15, 16, 17, 18, 19, 20]  # Corresponds to D, G, H, N, O, P, Q, R, T, U
-        df.drop(df.columns[columns_to_delete], axis=1, inplace=True)
-        
-        # Modify 7th row headers (adjust for 0-based index)
-        df.iloc[1] = ["GSTIN", "LEGAL NAME", "INV NO", "INV DATE", "INV VALUE", "TAXABLE VALUE", "IGST", "CGST", "SGST", "CESS"]
-        
+
+        # Ensure the specified columns exist before dropping
+        all_columns = list(df.columns)
+        columns_to_delete = [3, 6, 7, 13, 14, 15, 16, 17, 18, 19, 20]
+        columns_to_delete = [all_columns[i] for i in columns_to_delete if i < len(all_columns)]
+        df.drop(columns=columns_to_delete, axis=1, inplace=True)
+
+        # Modify 7th row headers (adjust for index)
+        if len(df) > 1:
+            df.iloc[1] = ["GSTIN", "LEGAL NAME", "INV NO", "INV DATE", "INV VALUE", "TAXABLE VALUE", "IGST", "CGST", "SGST", "CESS"]
+
         # Insert an empty first row
         df.loc[-1] = [""] * len(df.columns)
         df.index = df.index + 1
@@ -32,7 +41,7 @@ def process_excel(input_path, output_path):
 
         # Add "Total" row at the bottom
         df.loc[len(df)] = ["Total"] + [None] * (len(df.columns) - 1)
-        
+
         # Save modified DataFrame to Excel
         df.to_excel(output_path, index=False, engine="openpyxl")
 
@@ -56,7 +65,7 @@ def process_excel(input_path, output_path):
                 cell.alignment = center_alignment
                 cell.fill = yellow_fill
 
-        # Apply SUM formula to the last row of columns E, F, G, H, I, and J
+        # Apply SUM formula to the last row of numeric columns
         total_row_index = ws.max_row
         for col_idx in range(5, 11):  # Columns E to J (1-based index)
             col_letter = get_column_letter(col_idx)
@@ -99,11 +108,11 @@ def process_excel(input_path, output_path):
 @app.route("/upload", methods=["POST"])
 def upload_file():
     if "file" not in request.files:
-        return "No file part", 400
+        return jsonify({"error": "No file part"}), 400
     
     file = request.files["file"]
     if file.filename == "":
-        return "No selected file", 400
+        return jsonify({"error": "No selected file"}), 400
     
     input_path = "temp_input.xlsx"
     output_path = "temp_output.xlsx"
@@ -111,10 +120,10 @@ def upload_file():
     
     success, message = process_excel(input_path, output_path)
     if not success:
-        return message, 500
+        return jsonify({"error": message}), 500
     
     return send_file(output_path, as_attachment=True, download_name="Formatted_GSTR2B.xlsx")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    port = int(os.environ.get("PORT", 10000))  # Ensure it matches Render's port
+    app.run(host="0.0.0.0", port=port, debug=False)
