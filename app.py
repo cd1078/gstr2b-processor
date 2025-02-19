@@ -125,5 +125,4 @@ def upload_file():
     return send_file(output_path, as_attachment=True, download_name="Formatted_GSTR2B.xlsx")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Ensure it matches Render's port
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run()
