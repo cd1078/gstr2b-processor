@@ -12,19 +12,27 @@
     <script>
         function uploadFile() {
             let file = document.getElementById("fileInput").files[0];
+            let messageElement = document.getElementById("message");
+
             if (!file) {
                 alert("Please select a file first.");
                 return;
             }
 
+            messageElement.innerText = "Uploading... Please wait.";
             let formData = new FormData();
             formData.append("file", file);
 
-            fetch("http://127.0.0.1:5000/upload", {
+            fetch("https://gstr2b-processor.onrender.com/upload", {  // Updated API URL
                 method: "POST",
                 body: formData
             })
-            .then(response => response.blob())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || "Upload failed!"); });
+                }
+                return response.blob();
+            })
             .then(blob => {
                 let url = window.URL.createObjectURL(blob);
                 let a = document.createElement("a");
@@ -32,11 +40,11 @@
                 a.download = "Formatted_GSTR2B.xlsx";
                 document.body.appendChild(a);
                 a.click();
-                document.getElementById("message").innerText = "Download complete!";
+                messageElement.innerText = "✅ Download complete!";
             })
             .catch(error => {
                 console.error("Upload failed:", error);
-                document.getElementById("message").innerText = "Upload failed!";
+                messageElement.innerText = "❌ " + error.message;
             });
         }
     </script>
