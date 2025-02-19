@@ -9,26 +9,39 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+# Root route to test deployment
+@app.route("/")
+def home():
+    return "✅ Flask App is Running on Render!"
+
 # Function to process the Excel file
 def process_excel(input_path, output_path):
     try:
-        df = pd.read_excel(input_path, sheet_name="B2B", engine="openpyxl")
-        
+        # Check if file exists
+        if not os.path.exists(input_path):
+            return False, "Error: Uploaded file not found."
+
+        # Read Excel file
+        with pd.ExcelFile(input_path, engine="openpyxl") as xls:
+            if "B2B" not in xls.sheet_names:
+                return False, "Error: 'B2B' sheet not found in Excel file."
+            df = pd.read_excel(xls, sheet_name="B2B")
+
         # Check if the DataFrame is valid
         if df.empty:
-            return False, "Error: Excel file is empty or sheet not found."
+            return False, "Error: 'B2B' sheet is empty."
 
-        # Ensure the specified indices exist before dropping
+        # Ensure specified indices exist before dropping
         rows_to_delete = [1, 2, 3, 5]
         rows_to_delete = [i for i in rows_to_delete if i < len(df)]
-        df.drop(index=rows_to_delete, inplace=True)
+        df.drop(index=rows_to_delete, inplace=True, errors="ignore")
         df.reset_index(drop=True, inplace=True)
 
-        # Ensure the specified columns exist before dropping
+        # Ensure specified columns exist before dropping
         all_columns = list(df.columns)
         columns_to_delete = [3, 6, 7, 13, 14, 15, 16, 17, 18, 19, 20]
         columns_to_delete = [all_columns[i] for i in columns_to_delete if i < len(all_columns)]
-        df.drop(columns=columns_to_delete, axis=1, inplace=True)
+        df.drop(columns=columns_to_delete, axis=1, inplace=True, errors="ignore")
 
         # Modify 7th row headers (adjust for index)
         if len(df) > 1:
@@ -53,10 +66,10 @@ def process_excel(input_path, output_path):
         bold_font = Font(bold=True, size=12)
         center_alignment = Alignment(horizontal="center")
         yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-        thin_border = Border(left=Side(style='thin'),
-                             right=Side(style='thin'),
-                             top=Side(style='thin'),
-                             bottom=Side(style='thin'))
+        thin_border = Border(left=Side(style="thin"),
+                             right=Side(style="thin"),
+                             top=Side(style="thin"),
+                             bottom=Side(style="thin"))
 
         # Apply Bold to Header Row
         if ws.max_row > 1:
@@ -124,8 +137,7 @@ def upload_file():
     
     return send_file(output_path, as_attachment=True, download_name="Formatted_GSTR2B.xlsx")
 
-import os
-
+# Run the app with correct port binding for Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  # Default to 10000 if PORT is not set
     app.run(host="0.0.0.0", port=port)
