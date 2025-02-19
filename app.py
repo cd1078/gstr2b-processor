@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify, render_template
 from flask_cors import CORS
 import pandas as pd
 import openpyxl
@@ -6,28 +6,25 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 CORS(app)
 
-# Root route to test deployment
+# Route to serve the frontend
 @app.route("/")
 def home():
-    return "✅ Flask App is Running on Render!"
+    return render_template("index.html")  # Now serving the HTML page
 
 # Function to process the Excel file
 def process_excel(input_path, output_path):
     try:
-        # Check if file exists
         if not os.path.exists(input_path):
             return False, "Error: Uploaded file not found."
 
-        # Read Excel file
         with pd.ExcelFile(input_path, engine="openpyxl") as xls:
             if "B2B" not in xls.sheet_names:
                 return False, "Error: 'B2B' sheet not found in Excel file."
             df = pd.read_excel(xls, sheet_name="B2B")
 
-        # Check if the DataFrame is valid
         if df.empty:
             return False, "Error: 'B2B' sheet is empty."
 
@@ -43,7 +40,7 @@ def process_excel(input_path, output_path):
         columns_to_delete = [all_columns[i] for i in columns_to_delete if i < len(all_columns)]
         df.drop(columns=columns_to_delete, axis=1, inplace=True, errors="ignore")
 
-        # Modify 7th row headers (adjust for index)
+        # Modify 7th row headers
         if len(df) > 1:
             df.iloc[1] = ["GSTIN", "LEGAL NAME", "INV NO", "INV DATE", "INV VALUE", "TAXABLE VALUE", "IGST", "CGST", "SGST", "CESS"]
 
@@ -80,7 +77,7 @@ def process_excel(input_path, output_path):
 
         # Apply SUM formula to the last row of numeric columns
         total_row_index = ws.max_row
-        for col_idx in range(5, 11):  # Columns E to J (1-based index)
+        for col_idx in range(5, 11):  # Columns E to J
             col_letter = get_column_letter(col_idx)
             sum_formula = f"=SUM({col_letter}5:{col_letter}{total_row_index - 1})"
             ws[f"{col_letter}{total_row_index}"].value = sum_formula
@@ -137,7 +134,6 @@ def upload_file():
     
     return send_file(output_path, as_attachment=True, download_name="Formatted_GSTR2B.xlsx")
 
-# Run the app with correct port binding for Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  # Default to 10000 if PORT is not set
     app.run(host="0.0.0.0", port=port)
